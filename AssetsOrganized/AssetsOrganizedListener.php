@@ -19,7 +19,10 @@ class AssetsOrganizedListener extends Listener
      */
 
 
-    public $events = ['content.saved' => 'moveAssets'];
+    public $events = [
+        'content.saved' => 'moveAssets',
+        'cp.add_to_head' => 'outputAssetURLs'
+    ];
 
     private $asset_container;
 
@@ -35,7 +38,9 @@ class AssetsOrganizedListener extends Listener
 
             $data = $content->data();
 
-            if($this->processAssets($data, $content, $original)) {
+            $processedMap = [];
+
+            if($this->processAssets($data, $content, $original, $processedMap)) {
                 $content->data($data);
                 $content->save();
             }
@@ -43,7 +48,17 @@ class AssetsOrganizedListener extends Listener
         }
     }
 
-    private function processAssets(&$data, $content, $original) {
+    public function outputAssetURLs() {
+
+        $all_asset_container = AssetContainer::all()->map(function ($container) {
+            return $container->url();
+        })->toArray();
+
+        return '<script>AssetsOrganized = { containers: ' . json_encode( $all_asset_container ) . ' };</script>';
+    }
+
+    private function processAssets(&$data, $content, $original, &$processedMap) {
+
 
         $ret = false;
 
@@ -53,18 +68,18 @@ class AssetsOrganizedListener extends Listener
                 foreach($data as $key => &$value) {
                     if(!is_array($value)) {
                         if(strpos($value, $single_asset_container_trimmed) || strpos($value, $single_asset_container_trimmed) === 0) {
-                            $ret = $this->processSingleAsset($value, $content, $original, $single_asset_container_trimmed) || $ret;
+                            $ret = $this->processSingleAsset($value, $content, $original, $single_asset_container_trimmed, $processedMap) || $ret;
                         }
                     }
                     else {
                         if(in_array($single_asset_container_trimmed, $value)) {
                             $ret = false;
                             foreach($value as &$asset) {
-                                $ret = $this->processSingleAsset($asset, $content, $original, $single_asset_container_trimmed) || $ret;
+                                $ret = $this->processSingleAsset($asset, $content, $original, $single_asset_container_trimmed, $processedMap) || $ret;
                             }
                         }
                         else {
-                            $ret = $this->processAssets($value, $content, $original) || $ret;
+                            $ret = $this->processAssets($value, $content, $original, $processedMap) || $ret;
                         }
                     }
                 }
@@ -75,12 +90,19 @@ class AssetsOrganizedListener extends Listener
         return $ret;
     }
 
-    private function processSingleAsset(&$asset, $content, $original, $single_asset_container_trimmed) {
+    private function processSingleAsset(&$asset, $content, $original, $single_asset_container_trimmed, &$processedMap) {
 
         $changed = true;
+
+        if(array_key_exists($asset, $processedMap)) {
+            $asset = $processedMap[$asset];
+            return true;
+        }
+
         $asset_factory = Asset::find($asset);
 
         $matches = array();
+
         preg_match('/^[^\/]*/' , $asset_factory->path(), $matches);
 
         $new_path = $matches[0] . '/' . $content->slug() . '/';
@@ -91,6 +113,7 @@ class AssetsOrganizedListener extends Listener
         else {
             $asset_factory->move($new_path);
 
+            $processedMap[$asset] = $asset_factory->uri();
             $asset = $asset_factory->uri();
 
             // if slug or id is changed, empty subfolders will get deleted
@@ -100,6 +123,7 @@ class AssetsOrganizedListener extends Listener
 
             return true;
         }
+
     }
 
     private function startsWith($haystack, $needle)
@@ -107,4 +131,6 @@ class AssetsOrganizedListener extends Listener
         $length = strlen($needle);
         return (substr($haystack, 0, $length) === $needle);
     }
+
+
 }

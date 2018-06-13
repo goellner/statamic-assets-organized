@@ -1,5 +1,0 @@
-fields:
-  collections:
-    type: collections
-    display: Collections
-    instructions: Select the collections where the images should be copied to subfolders

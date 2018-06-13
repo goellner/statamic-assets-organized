@@ -14,9 +14,10 @@ Vue.component('assets_organized-fieldtype', {
             var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
 
             if(!publish.isNew) {
+                this.config.originalFolder = this.config.folder;
                 return Object.assign(this.config, {
                         restrict: true,
-                        folder: publish.extra.collection +'/' + publish.formData.fields.slug
+                        folder: this.config.originalFolder + publish.formData.fields.slug
                     });
             }
             else {
@@ -29,20 +30,23 @@ Vue.component('assets_organized-fieldtype', {
 
     ready: function() {
         var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
-        publish.$on('changesMade', this.updateAssetPaths );
+        publish.$on('setFlashSuccess', this.updateAssetPaths );
     },
 
     methods: {
-        updateAssetPaths: function() {
+        updateAssetPaths: function(event = null, args=null) {
+            if(event !== 'Saved') return;
+
             var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
 
             if(publish.isNew) return;
 
             var regex = /^(.*(?=\/[^\/]+\/.*)\/)([^\/]+)(\/.*)$/gm;
 
+            var self = this;
             if(Array.isArray(this.data)) {
                 var temp = this.data.map(function callback(val) {
-                    return val.replace(regex, '$1' + publish.formData.fields.slug + '$3');
+                    return val.replace(regex, AssetsOrganized.containers[self.config.container] + self.fieldConfig.folder + '$3');
                 });
 
                 if(!this.arrayIsEqual(temp, this.data)) {
