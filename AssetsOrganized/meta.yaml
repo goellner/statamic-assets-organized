@@ -1,4 +1,5 @@
 name: AssetsOrganized
-version: "1.1.0"
+version: "1.2.0"
 description: Organizes assets in subdirectories
 developer: Stefan Göllner
+developer_url: https://github.com/goellner/statamic-assets-organized

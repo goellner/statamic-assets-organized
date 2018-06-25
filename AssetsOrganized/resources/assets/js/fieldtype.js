@@ -1,62 +1,82 @@
 Vue.component('assets_organized-fieldtype', {
 
-    mixins: [Fieldtype],
+    mixins: [ Fieldtype ],
 
     template: `
         <div>
-            <assets-fieldtype :name="name" :data.sync="data" :config="fieldConfig"></assets-fieldtype>
+            <assets-fieldtype v-if="isReady" :slug="getSlug" :assetContainer="getAssetContainer" :name="name" :data.sync="data.assets" :config="config"></assets-fieldtype>
         </div>
     `,
 
-    computed: {
-
-        fieldConfig() {
-            var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
-
-            if(!publish.isNew) {
-                this.config.originalFolder = this.config.folder;
-                return Object.assign(this.config, {
-                        restrict: true,
-                        folder: this.config.originalFolder + publish.formData.fields.slug
-                    });
-            }
-            else {
-                return this.config;
-            }
-
+    data: function () {
+        return {
+            isReady: false
         }
-
     },
 
-    ready: function() {
-        var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
-        publish.$on('setFlashSuccess', this.updateAssetPaths );
+    computed: {
+        getSlug: function() {
+            var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
+            this.data.slug = publish.formData.fields.slug;
+            return publish.formData.fields.slug;
+        },
+        getAssetContainer: function() {
+            this.data.asset_container = this.config.container;
+            return this.config.container;
+        }
     },
 
     methods: {
-        updateAssetPaths: function(event = null, args=null) {
-            if(event !== 'Saved') return;
+        updateOldSlug: function(event) {
+            this.updateDataAssetsPath();
+            this.data.oldSlug = this.data.slug;
+        },
+        updateDataAssetsPath: function() {
+            if(this.data.oldSlug !== this.data.slug) {
 
-            var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
+                var self = this;
 
-            if(publish.isNew) return;
-
-            var regex = /^(.*(?=\/[^\/]+\/.*)\/)([^\/]+)(\/.*)$/gm;
-
-            var self = this;
-            if(Array.isArray(this.data)) {
-                var temp = this.data.map(function callback(val) {
-                    return val.replace(regex, AssetsOrganized.containers[self.config.container] + self.fieldConfig.folder + '$3');
+                this.data.assets.forEach(function(element, index, array) {
+                    var splitElem = element.split('/');
+                    var oldSlug = splitElem[splitElem.length - 2];
+                    splitElem[splitElem.length - 2] = self.data.slug;
+                    var ret = splitElem.join('/');
+                    array[index] = ret;
                 });
 
-                if(!this.arrayIsEqual(temp, this.data)) {
-                    this.data = temp;
-                }
+
             }
-        },
-        arrayIsEqual: function(a1, a2) {
-            return a1.length==a2.length && a1.every(function(v,i) { return v === a2[i]});
         }
+    },
+
+
+    ready: function() {
+        var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
+
+        if(!this.data[0]) {
+            this.data = {};
+            this.data.assets = [];
+        } else {
+            var assetsData = this.data;
+            this.data = {};
+            this.data.assets = assetsData;
+        }
+
+
+        this.data.initialFolder = this.config.folder;
+        this.data.slug = '';
+        this.data.asset_container = this.config.container;
+
+        this.data.oldSlug = this.data.slug;
+        this.updateDataAssetsPath();
+
+        if(this.data.slug !== null && this.data.slug.length > 0) {
+            this.config.folder = this.config.folder + '/' + this.data.slug;
+        }
+
+        publish.$on('setFlashSuccess', this.updateOldSlug );
+
+        this.isReady = true;
     }
 
 });
