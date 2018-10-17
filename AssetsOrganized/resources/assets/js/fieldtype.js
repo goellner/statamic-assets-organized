@@ -53,6 +53,10 @@ Vue.component('assets_organized-fieldtype', {
     ready: function() {
         var publish = this.$root.$children.filter(function(filter) { return filter.$options.name === 'publish'; })[0];
 
+        if (!Array.isArray(this.data)) {
+            this.data = this.data.assets;
+        }
+
         if(!this.data[0]) {
             this.data = {};
             this.data.assets = [];
